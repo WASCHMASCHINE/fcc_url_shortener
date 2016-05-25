@@ -2,8 +2,8 @@
 
 var mongo = require('mongodb').MongoClient;
 var express = require('express');
-var env = require('node-env-file');
-env('.env'); // load .env
+//var env = require('node-env-file');
+//env('.env'); // load .env
 var app = express();
 
 function insertUrlsIntoDatabase(urlObject){
