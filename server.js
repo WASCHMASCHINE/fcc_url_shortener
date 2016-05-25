@@ -1,31 +1,65 @@
 'use strict';
 
+var mongo = require('mongodb').MongoClient;
 var express = require('express');
-var routes = require('./app/routes/index.js');
-var mongoose = require('mongoose');
-var passport = require('passport');
-var session = require('express-session');
-
 var app = express();
-require('dotenv').load();
-require('./app/config/passport')(passport);
 
-mongoose.connect(process.env.MONGO_URI);
+function insertUrlsIntoDatabase(urlObject){
+	mongo.connect("mongodb://localhost:27017/fcc-url-shortener", function(err, db) {
+		if (err) throw err;
+		var urls = db.collection('shortenedUrls');
+		urls.insert(urlObject, function(err,data){
+		if (err) throw err;
+		//console.log(JSON.stringify(urlObject));
+		db.close();
+		});
+	});
+}
 
-app.use('/controllers', express.static(process.cwd() + '/app/controllers'));
-app.use('/public', express.static(process.cwd() + '/public'));
-app.use('/common', express.static(process.cwd() + '/app/common'));
+// Create new shortened Url
+app.get('/new/*', function(req, res){
+    var originalUrl = req.originalUrl.substr(5); //skip "/new/"
+    
+    // Validate URL
+    var regexUrl = /https?:\/\/\w+.\w+/;
+    if (regexUrl.exec(originalUrl) == null){
+    	res.end(JSON.stringify({"error": "URL invalid"}));
+    } else {
+		// Check for URL in database? duplicates shouldnt matter, although
+    
+	    // Generate shortened URL
+	    var basisUrl = "https://" + req.headers["host"] + "/";
+	    var shortUrl = basisUrl + Math.random().toString(10).substr(2,6);
+	    
+	    var outputObject = { "original_url": originalUrl, "short_url": shortUrl};
+	    insertUrlsIntoDatabase(outputObject);
+		res.end(JSON.stringify(outputObject));
+    }
+});
 
-app.use(session({
-	secret: 'secretClementine',
-	resave: false,
-	saveUninitialized: true
-}));
+// Redirect to shortened Url
+app.get('/*', function(req, res){
+    //console.log(url);
+    
+    // Look up shortened Url in database
+    //var url = findUrlFromDatabase("https://" + req.headers["host"] + "/" +req.originalUrl.substr(1));
+    var url = "https://" + req.headers["host"] + "/" +req.originalUrl.substr(1);
+    console.log("hello! ", url);
+   mongo.connect("mongodb://localhost:27017/fcc-url-shortener", function(err, db) {
+		if (err) throw err;
+		var urls = db.collection('shortenedUrls');
+		urls.find({short_url: url}).toArray(function(err, items) {
+				if (err) throw err;
+				console.log("here are items: ", items)
+				if (items.length == 0){
+					res.end("Could not find the provided URL.");
+				} else {
+                	res.redirect(items[0].original_url);
+				}
+             });
+	});
+});
 
-app.use(passport.initialize());
-app.use(passport.session());
-
-routes(app, passport);
 
 var port = process.env.PORT || 8080;
 app.listen(port,  function () {
