@@ -46,7 +46,6 @@ app.get('/*', function(req, res){
 		var urls = db.collection('shortenedUrls');
 		urls.find({short_url: url}).toArray(function(err, items) {
 				if (err) throw err;
-				console.log("here are items: ", items)
 				if (items.length == 0){
 					res.end("Could not find the provided URL.");
 				} else {
